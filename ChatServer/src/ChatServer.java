@@ -81,4 +81,8 @@ public class ChatServer {
     public int getPortNumber() {
         return this.portNumber;
     }
+
+    public ArrayList<Socket> getConnectedClients() {
+        return this.connectedClients;
+    }
 }
