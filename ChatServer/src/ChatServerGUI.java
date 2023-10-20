@@ -1,54 +1,55 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.util.ArrayList;
-import java.net.Socket;
 
 public class ChatServerGUI extends JFrame {
     private final ChatServer chatServer;
-    private final DefaultListModel<String> clientListModel;
-
-    private final JButton startButton;
-    private final JButton stopButton;
     private final JTextArea logTextArea;
 
+    private final JList<String> clientList;
+    private final JScrollPane clientScrollPane;
+
+    private final DefaultListModel<String> clientListModel;
+
     public ChatServerGUI() {
-        chatServer = new ChatServer();
-        clientListModel = new DefaultListModel<>();
-        JList<String> clientList = new JList<>(clientListModel);
+        this.setSize(1000, 800);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        this.setLocationRelativeTo(null);
+        this.setResizable(false);
 
-        setTitle("Chat Server");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(400, 300);
-        setLayout(new BorderLayout());
-
-        startButton = new JButton("Start Server");
-        stopButton = new JButton("Stop Server");
-        logTextArea = new JTextArea();
-        logTextArea.setEditable(false);
-
+        // Create a panel for buttons
         JPanel buttonPanel = new JPanel();
+        JButton startButton = new JButton("Start Server");
+        JButton stopButton = new JButton("Stop Server");
         buttonPanel.add(startButton);
+        startButton.addActionListener(e -> startServer());
         buttonPanel.add(stopButton);
+        stopButton.addActionListener(e -> stopServer());
 
-        add(buttonPanel, BorderLayout.NORTH);
-        add(new JScrollPane(logTextArea), BorderLayout.CENTER);
-        add(new JScrollPane(clientList), BorderLayout.SOUTH);
+        // Create a text area with word wrap and vertical scrolling (left)
+        this.logTextArea = new JTextArea(20, 60); // Adjusted size to be larger
+        logTextArea.setLineWrap(true);
+        logTextArea.setWrapStyleWord(true);
+        JScrollPane scrollPane1 = new JScrollPane(logTextArea);
 
-        startButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                startServer();
-            }
-        });
+        // Create another scrollable list area to the right
+        this.clientListModel = new DefaultListModel<>();
+        clientList = new JList<>(clientListModel);
+        clientScrollPane = new JScrollPane(clientList);
 
-        stopButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                stopServer();
-            }
-        });
+        // Create a split pane to arrange the text areas side by side
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane1, clientScrollPane);
+        splitPane.setResizeWeight(0.7); // Adjusted for preferred size
+
+        // Add components to the frame
+        this.getContentPane().setLayout(new BorderLayout());
+        this.getContentPane().add(buttonPanel, BorderLayout.NORTH);
+        this.getContentPane().add(splitPane, BorderLayout.CENTER);
+
+        chatServer = new ChatServer();
+
+        // Create a Timer to periodically update the logTextArea
+        Timer timer = new Timer(500, e -> updateLogTextArea());
+        timer.start();
     }
 
     private void startServer() {
@@ -72,10 +73,15 @@ public class ChatServerGUI extends JFrame {
     }
 
     private void updateClientList() {
-        ArrayList<Socket> clients = chatServer.getConnectedClients();
-        clientListModel.clear();
-        for (Socket client : clients) {
-            clientListModel.addElement(client.getInetAddress().toString());
-        }
+        var clients = chatServer.getConnectedClients();
+        clientList.setListData(clients);
+        this.clientScrollPane.repaint();
+    }
+
+    private void updateLogTextArea() {
+        // Fetch data from chatServer.log() and update the logTextArea
+        String logData = chatServer.log();
+        logTextArea.append(logData);
+        logTextArea.repaint();
     }
 }

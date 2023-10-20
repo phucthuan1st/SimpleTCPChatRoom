@@ -1,23 +1,32 @@
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.List;
 
 public class ChatServer {
     private final int portNumber;
     private ServerSocket socket;
+
+    private final StringBuilder logging; // Use StringBuilder for efficient string concatenation
 
     private final ArrayList<Socket> connectedClients;
 
     public ChatServer() {
         this.portNumber = 8888;
         connectedClients = new ArrayList<>();
+        logging = new StringBuilder(); // Initialize StringBuilder
     }
 
     public ChatServer(int customPortNumber) {
         this.portNumber = customPortNumber;
         connectedClients = new ArrayList<>();
+        logging = new StringBuilder(); // Initialize StringBuilder
     }
+
     public void start() throws Exception {
         this.socket = new ServerSocket(portNumber);
     }
@@ -32,9 +41,9 @@ public class ChatServer {
             clientThread.start();
         }
     }
+
     public void stop() throws IOException {
         for (Socket clientSocket : connectedClients) {
-            connectedClients.remove(clientSocket);
             clientSocket.close();
         }
 
@@ -53,21 +62,17 @@ public class ChatServer {
         public void run() {
             try {
                 // Create input stream for client communication
-                InputStream in = clientSocket.getInputStream();
-
-                // Reader to read buffer of client input stream
-                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
                 String message;
 
-                while (!(message = reader.readLine()).equals(":signal:disconnect")) {
-
-                    // If the incoming message is not disconnect signal, broadcast it to every connected client
-                    for (Socket client : server.connectedClients) {
-                        DataOutputStream outToClient = new DataOutputStream(client.getOutputStream());
-                        outToClient.writeBytes(message);
-                        outToClient.close();
+                while ((message = reader.readLine()) != null) {
+                    if (message.equals(":signal:disconnect")) {
+                        break;
                     }
+                    // If the incoming message is not a disconnect signal, broadcast it to every connected client
+                    server.broadcast(message);
+                    server.logging.append(message).append("\n");
                 }
 
                 server.connectedClients.remove(clientSocket);
@@ -82,7 +87,29 @@ public class ChatServer {
         return this.portNumber;
     }
 
-    public ArrayList<Socket> getConnectedClients() {
-        return this.connectedClients;
+    public String[] getConnectedClients() {
+        List<String> clients = new ArrayList<>();
+        for (Socket client : this.connectedClients) {
+            clients.add(client.getInetAddress().toString());
+        }
+
+        return clients.toArray(new String[0]);
+    }
+
+    public synchronized void broadcast(String msg) throws IOException {
+        msg += "\n"; // Add newline character
+        for (Socket client : this.connectedClients) {
+            PrintWriter outToClient = new PrintWriter(client.getOutputStream(), true);
+            outToClient.println(msg);
+        }
+    }
+
+    public void killClient(Socket client) throws IOException {
+        this.connectedClients.remove(client);
+        client.close();
+    }
+
+    public String log() {
+        return this.logging.toString(); // Convert StringBuilder to String
     }
 }
